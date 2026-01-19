@@ -1,0 +1,69 @@
+### AboutSL API Tests - Authentication
+### Use with REST Client extension in VS Code
+
+@baseUrl = http://localhost:5000/api
+@contentType = application/json
+
+### Health Check
+GET http://localhost:5000/api/health
+
+### ==========================================
+### AUTHENTICATION ENDPOINTS
+### ==========================================
+
+### 1. Register Admin (First Time Only)
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+  "email": "admin@aboutsl.com",
+  "password": "admin123",
+  "name": "Admin User"
+}
+
+### 2. Login Admin
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "admin@aboutsl.com",
+  "password": "admin123"
+}
+
+### 3. Save Token from Login Response
+@authToken = {{login.response.body.token}}
+
+### 4. Get Current Admin (Protected Route)
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{authToken}}
+
+### 5. Logout
+POST {{baseUrl}}/auth/logout
+Authorization: Bearer {{authToken}}
+
+### ==========================================
+### ERROR CASES
+### ==========================================
+
+### Invalid Login Credentials
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "wrong@email.com",
+  "password": "wrongpassword"
+}
+
+### Access Protected Route Without Token
+GET {{baseUrl}}/auth/me
+
+### Register with Existing Email
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+  "email": "admin@aboutsl.com",
+  "password": "newpassword",
+  "name": "Duplicate Admin"
+}

@@ -1,0 +1,13 @@
+{
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "humao.rest-client",
+    "mongodb.mongodb-vscode",
+    "mikestead.dotenv",
+    "eamodio.gitlens",
+    "christian-kohler.path-intellisense",
+    "formulahendry.auto-close-tag",
+    "aaron-bond.better-comments"
+  ]
+}
