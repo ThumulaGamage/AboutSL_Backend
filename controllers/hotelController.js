@@ -1,26 +1,30 @@
 const Hotel = require('../models/Hotel');
+const Destination = require('../models/Destination');
 const { Op } = require('sequelize');
 
-// @desc    Get all hotels
+// Helper to parse JSON fields
+const parseHotelJSON = (hotel) => {
+  if (!hotel) return null;
+  return hotel.toJSON(); // Model getters will handle parsing
+};
+
+// @desc    Get all hotels with nearby destinations populated
 // @route   GET /api/hotels
 // @access  Public
 exports.getHotels = async (req, res) => {
   try {
     let query = {};
 
-    // Filter by status
     if (!req.admin) {
       query.status = 'active';
     } else if (req.query.status) {
       query.status = req.query.status;
     }
 
-    // Filter by category
     if (req.query.category && req.query.category !== 'all') {
       query.category = req.query.category;
     }
 
-    // Search by name
     if (req.query.search) {
       query.name = { [Op.like]: `%${req.query.search}%` };
     }
@@ -30,10 +34,36 @@ exports.getHotels = async (req, res) => {
       order: [['createdAt', 'DESC']]
     });
 
+    // Parse and populate nearby destinations
+    const parsedHotels = await Promise.all(
+      hotels.map(async (hotel) => {
+        const parsed = parseHotelJSON(hotel);
+        
+        // Populate nearby destinations with full details
+        if (parsed.nearbyDestinations && parsed.nearbyDestinations.length > 0) {
+          const destinationIds = parsed.nearbyDestinations.map(nd => nd.destinationId);
+          const destinations = await Destination.findAll({
+            where: { id: { [Op.in]: destinationIds } },
+            attributes: ['id', 'name', 'heroImage', 'category', 'region']
+          });
+
+          parsed.nearbyDestinationsDetails = parsed.nearbyDestinations.map(nd => {
+            const destination = destinations.find(d => d.id === nd.destinationId);
+            return {
+              ...nd,
+              destination: destination ? destination.toJSON() : null
+            };
+          });
+        }
+
+        return parsed;
+      })
+    );
+
     res.status(200).json({
       success: true,
-      count: hotels.length,
-      data: hotels
+      count: parsedHotels.length,
+      data: parsedHotels
     });
   } catch (error) {
     res.status(400).json({
@@ -43,7 +73,7 @@ exports.getHotels = async (req, res) => {
   }
 };
 
-// @desc    Get single hotel
+// @desc    Get single hotel with nearby destinations
 // @route   GET /api/hotels/:id
 // @access  Public
 exports.getHotel = async (req, res) => {
@@ -64,9 +94,27 @@ exports.getHotel = async (req, res) => {
       });
     }
 
+    const parsed = parseHotelJSON(hotel);
+
+    // Populate nearby destinations with full details
+    if (parsed.nearbyDestinations && parsed.nearbyDestinations.length > 0) {
+      const destinationIds = parsed.nearbyDestinations.map(nd => nd.destinationId);
+      const destinations = await Destination.findAll({
+        where: { id: { [Op.in]: destinationIds } }
+      });
+
+      parsed.nearbyDestinationsDetails = parsed.nearbyDestinations.map(nd => {
+        const destination = destinations.find(d => d.id === nd.destinationId);
+        return {
+          ...nd,
+          destination: destination ? destination.toJSON() : null
+        };
+      }).sort((a, b) => a.distance - b.distance); // Sort by distance
+    }
+
     res.status(200).json({
       success: true,
-      data: hotel
+      data: parsed
     });
   } catch (error) {
     res.status(400).json({
@@ -82,13 +130,15 @@ exports.getHotel = async (req, res) => {
 exports.createHotel = async (req, res) => {
   try {
     const hotel = await Hotel.create(req.body);
+    const parsed = parseHotelJSON(hotel);
 
     res.status(201).json({
       success: true,
       message: 'Hotel created successfully',
-      data: hotel
+      data: parsed
     });
   } catch (error) {
+    console.error('Create hotel error:', error);
     res.status(400).json({
       success: false,
       message: error.message
@@ -111,13 +161,15 @@ exports.updateHotel = async (req, res) => {
     }
 
     hotel = await hotel.update(req.body);
+    const parsed = parseHotelJSON(hotel);
 
     res.status(200).json({
       success: true,
       message: 'Hotel updated successfully',
-      data: hotel
+      data: parsed
     });
   } catch (error) {
+    console.error('Update hotel error:', error);
     res.status(400).json({
       success: false,
       message: error.message
@@ -174,11 +226,12 @@ exports.toggleStatus = async (req, res) => {
     }
 
     await hotel.save();
+    const parsed = parseHotelJSON(hotel);
 
     res.status(200).json({
       success: true,
       message: `Hotel ${hotel.status === 'active' ? 'activated' : 'deactivated'}`,
-      data: hotel
+      data: parsed
     });
   } catch (error) {
     res.status(400).json({

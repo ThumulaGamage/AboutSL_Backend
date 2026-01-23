@@ -74,14 +74,11 @@ exports.uploadImage = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'Image uploaded successfully',
-      data: {
-        url: result.secure_url,
-        publicId: result.public_id,
-        format: result.format,
-        width: result.width,
-        height: result.height
-      }
+      url: result.secure_url,
+      publicId: result.public_id,
+      format: result.format,
+      width: result.width,
+      height: result.height
     });
   } catch (error) {
     res.status(400).json({
@@ -135,8 +132,7 @@ exports.uploadImages = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: `${results.length} images uploaded successfully`,
-      data: results
+      images: results
     });
   } catch (error) {
     res.status(400).json({

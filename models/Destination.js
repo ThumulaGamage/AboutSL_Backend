@@ -42,8 +42,19 @@ const Destination = sequelize.define(
       type: DataTypes.JSON,
       defaultValue: {
         description: '',
-        images: [], // Array of image URLs
+        images: [],
       },
+      get() {
+        const rawValue = this.getDataValue('overview');
+        if (typeof rawValue === 'string') {
+          try {
+            return JSON.parse(rawValue);
+          } catch (e) {
+            return { description: '', images: [] };
+          }
+        }
+        return rawValue || { description: '', images: [] };
+      }
     },
 
     // SECTION 2: What to See
@@ -51,9 +62,20 @@ const Destination = sequelize.define(
       type: DataTypes.JSON,
       defaultValue: {
         description: '',
-        highlights: [], // Array of {title, description, image}
+        highlights: [],
         images: [],
       },
+      get() {
+        const rawValue = this.getDataValue('whatToSee');
+        if (typeof rawValue === 'string') {
+          try {
+            return JSON.parse(rawValue);
+          } catch (e) {
+            return { description: '', highlights: [], images: [] };
+          }
+        }
+        return rawValue || { description: '', highlights: [], images: [] };
+      }
     },
 
     // SECTION 3: Best Time to Visit
@@ -66,6 +88,17 @@ const Destination = sequelize.define(
         weatherInfo: '',
         images: [],
       },
+      get() {
+        const rawValue = this.getDataValue('bestTimeToVisit');
+        if (typeof rawValue === 'string') {
+          try {
+            return JSON.parse(rawValue);
+          } catch (e) {
+            return { description: '', season: '', months: '', weatherInfo: '', images: [] };
+          }
+        }
+        return rawValue || { description: '', season: '', months: '', weatherInfo: '', images: [] };
+      }
     },
 
     // SECTION 4: Things to Do
@@ -73,9 +106,20 @@ const Destination = sequelize.define(
       type: DataTypes.JSON,
       defaultValue: {
         description: '',
-        activities: [], // Array of {title, description, image}
+        activities: [],
         images: [],
       },
+      get() {
+        const rawValue = this.getDataValue('thingsToDo');
+        if (typeof rawValue === 'string') {
+          try {
+            return JSON.parse(rawValue);
+          } catch (e) {
+            return { description: '', activities: [], images: [] };
+          }
+        }
+        return rawValue || { description: '', activities: [], images: [] };
+      }
     },
 
     // SECTION 5: Travel Tips
@@ -83,9 +127,20 @@ const Destination = sequelize.define(
       type: DataTypes.JSON,
       defaultValue: {
         description: '',
-        tips: [], // Array of tip strings
+        tips: [],
         images: [],
       },
+      get() {
+        const rawValue = this.getDataValue('travelTips');
+        if (typeof rawValue === 'string') {
+          try {
+            return JSON.parse(rawValue);
+          } catch (e) {
+            return { description: '', tips: [], images: [] };
+          }
+        }
+        return rawValue || { description: '', tips: [], images: [] };
+      }
     },
 
     // SECTION 6: History & Legend
@@ -97,6 +152,17 @@ const Destination = sequelize.define(
         legends: '',
         images: [],
       },
+      get() {
+        const rawValue = this.getDataValue('historyAndLegend');
+        if (typeof rawValue === 'string') {
+          try {
+            return JSON.parse(rawValue);
+          } catch (e) {
+            return { description: '', historicalFacts: '', legends: '', images: [] };
+          }
+        }
+        return rawValue || { description: '', historicalFacts: '', legends: '', images: [] };
+      }
     },
 
     // Location for auto-linking hotels/restaurants
@@ -104,12 +170,23 @@ const Destination = sequelize.define(
       type: DataTypes.JSON,
       defaultValue: {
         coordinates: {
-          lat: null,
-          lng: null,
+          lat: 7.8731,
+          lng: 80.7718,
         },
         nearbyCity: '',
         region: '',
       },
+      get() {
+        const rawValue = this.getDataValue('location');
+        if (typeof rawValue === 'string') {
+          try {
+            return JSON.parse(rawValue);
+          } catch (e) {
+            return { coordinates: { lat: 7.8731, lng: 80.7718 }, nearbyCity: '', region: '' };
+          }
+        }
+        return rawValue || { coordinates: { lat: 7.8731, lng: 80.7718 }, nearbyCity: '', region: '' };
+      }
     },
 
     // SEO
@@ -118,6 +195,17 @@ const Destination = sequelize.define(
     },
     keywords: {
       type: DataTypes.JSON,
+      get() {
+        const rawValue = this.getDataValue('keywords');
+        if (typeof rawValue === 'string') {
+          try {
+            return JSON.parse(rawValue);
+          } catch (e) {
+            return [];
+          }
+        }
+        return rawValue || [];
+      }
     },
 
     // Status
@@ -145,6 +233,18 @@ const Destination = sequelize.define(
             .toLowerCase()
             .replace(/[^\w\s-]/g, '')
             .replace(/\s+/g, '-');
+        }
+
+        // Set published date when activating
+        if (destination.changed('status') && destination.status === 'active' && !destination.publishedDate) {
+          destination.publishedDate = new Date();
+        }
+
+        // Sync location.region with main region
+        if (destination.changed('region')) {
+          const location = destination.location || { coordinates: { lat: 7.8731, lng: 80.7718 }, nearbyCity: '', region: '' };
+          location.region = destination.region;
+          destination.location = location;
         }
       },
     },
