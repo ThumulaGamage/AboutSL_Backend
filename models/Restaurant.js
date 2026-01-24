@@ -37,6 +37,18 @@ const Restaurant = sequelize.define(
     },
     photoGallery: {
       type: DataTypes.JSON,
+      defaultValue: [],
+      get() {
+        const rawValue = this.getDataValue('photoGallery');
+        if (typeof rawValue === 'string') {
+          try {
+            return JSON.parse(rawValue);
+          } catch (e) {
+            return [];
+          }
+        }
+        return rawValue || [];
+      }
     },
     quickSummary: {
       type: DataTypes.TEXT,
@@ -51,15 +63,85 @@ const Restaurant = sequelize.define(
     },
     menuHighlights: {
       type: DataTypes.JSON,
+      defaultValue: [],
+      get() {
+        const rawValue = this.getDataValue('menuHighlights');
+        if (typeof rawValue === 'string') {
+          try {
+            return JSON.parse(rawValue);
+          } catch (e) {
+            return [];
+          }
+        }
+        return rawValue || [];
+      }
     },
     location: {
       type: DataTypes.JSON,
+      defaultValue: {
+        region: '',
+        address: '',
+        coordinates: {
+          lat: null,
+          lng: null,
+        },
+      },
+      get() {
+        const rawValue = this.getDataValue('location');
+        if (typeof rawValue === 'string') {
+          try {
+            return JSON.parse(rawValue);
+          } catch (e) {
+            return { region: '', address: '', coordinates: { lat: null, lng: null } };
+          }
+        }
+        return rawValue || { region: '', address: '', coordinates: { lat: null, lng: null } };
+      }
     },
     hours: {
       type: DataTypes.JSON,
+      defaultValue: {},
+      get() {
+        const rawValue = this.getDataValue('hours');
+        if (typeof rawValue === 'string') {
+          try {
+            return JSON.parse(rawValue);
+          } catch (e) {
+            return {};
+          }
+        }
+        return rawValue || {};
+      }
     },
     contact: {
       type: DataTypes.JSON,
+      defaultValue: {},
+      get() {
+        const rawValue = this.getDataValue('contact');
+        if (typeof rawValue === 'string') {
+          try {
+            return JSON.parse(rawValue);
+          } catch (e) {
+            return {};
+          }
+        }
+        return rawValue || {};
+      }
+    },
+    nearbyDestinations: {
+      type: DataTypes.JSON,
+      defaultValue: [],
+      get() {
+        const rawValue = this.getDataValue('nearbyDestinations');
+        if (typeof rawValue === 'string') {
+          try {
+            return JSON.parse(rawValue);
+          } catch (e) {
+            return [];
+          }
+        }
+        return rawValue || [];
+      }
     },
     rating: {
       type: DataTypes.DECIMAL(2, 1),
@@ -74,6 +156,18 @@ const Restaurant = sequelize.define(
     },
     keywords: {
       type: DataTypes.JSON,
+      defaultValue: [],
+      get() {
+        const rawValue = this.getDataValue('keywords');
+        if (typeof rawValue === 'string') {
+          try {
+            return JSON.parse(rawValue);
+          } catch (e) {
+            return [];
+          }
+        }
+        return rawValue || [];
+      }
     },
     status: {
       type: DataTypes.ENUM('active', 'inactive', 'draft'),
@@ -86,17 +180,6 @@ const Restaurant = sequelize.define(
       type: DataTypes.INTEGER,
       defaultValue: 0,
     },
-    location: {
-      type: DataTypes.JSON,
-      defaultValue: {
-        region: '',
-        address: '',
-        coordinates: {
-          lat: null,
-          lng: null,
-        },
-      },
-    },
   },
   {
     timestamps: true,
@@ -108,6 +191,10 @@ const Restaurant = sequelize.define(
             .toLowerCase()
             .replace(/[^\w\s-]/g, '')
             .replace(/\s+/g, '-');
+        }
+
+        if (restaurant.changed('status') && restaurant.status === 'active' && !restaurant.publishedDate) {
+          restaurant.publishedDate = new Date();
         }
       },
     },

@@ -129,8 +129,14 @@ exports.getHotel = async (req, res) => {
 // @access  Private (Admin)
 exports.createHotel = async (req, res) => {
   try {
+    console.log('📥 Received hotel data:', JSON.stringify(req.body, null, 2));
+    console.log('📸 Photo Gallery received:', req.body.photoGallery);
+    
     const hotel = await Hotel.create(req.body);
     const parsed = parseHotelJSON(hotel);
+
+    console.log('💾 Saved hotel:', JSON.stringify(parsed, null, 2));
+    console.log('📸 Photo Gallery saved:', parsed.photoGallery);
 
     res.status(201).json({
       success: true,

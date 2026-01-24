@@ -36,21 +36,36 @@ const Hotel = sequelize.define(
     heroImagePublicId: {
       type: DataTypes.STRING,
     },
-    photoGallery: {
-      type: DataTypes.JSON,
-      defaultValue: [],
-      get() {
-        const rawValue = this.getDataValue('photoGallery');
-        if (typeof rawValue === 'string') {
-          try {
-            return JSON.parse(rawValue);
-          } catch (e) {
-            return [];
-          }
-        }
-        return rawValue || [];
+   photoGallery: {
+  type: DataTypes.JSON,
+  defaultValue: [],
+  get() {
+    const rawValue = this.getDataValue('photoGallery');
+    if (typeof rawValue === 'string') {
+      try {
+        return JSON.parse(rawValue);
+      } catch (e) {
+        return [];
       }
-    },
+    }
+    return rawValue || [];
+  },
+  set(value) {
+    // Accept both string arrays and object arrays
+    if (Array.isArray(value)) {
+      // If it's an array of strings, convert to objects
+      const normalized = value.map((item, index) => {
+        if (typeof item === 'string') {
+          return { url: item, caption: '', order: index, publicId: '' };
+        }
+        return item;
+      });
+      this.setDataValue('photoGallery', normalized);
+    } else {
+      this.setDataValue('photoGallery', value);
+    }
+  }
+},
     quickSummary: {
       type: DataTypes.TEXT,
     },
@@ -58,21 +73,38 @@ const Hotel = sequelize.define(
       type: DataTypes.TEXT,
       allowNull: false,
     },
-    amenities: {
-      type: DataTypes.JSON,
-      defaultValue: [],
-      get() {
-        const rawValue = this.getDataValue('amenities');
-        if (typeof rawValue === 'string') {
-          try {
-            return JSON.parse(rawValue);
-          } catch (e) {
-            return [];
-          }
-        }
-        return rawValue || [];
+amenities: {
+  type: DataTypes.JSON,
+  defaultValue: [],
+  get() {
+    const rawValue = this.getDataValue('amenities');
+    if (typeof rawValue === 'string') {
+      try {
+        return JSON.parse(rawValue);
+      } catch (e) {
+        return [];
       }
-    },
+    }
+    return rawValue || [];
+  },
+  set(value) {
+    // Accept both string arrays and object arrays
+    if (Array.isArray(value)) {
+      // If it's an array of strings, convert to objects
+      const normalized = value.map(item => {
+        if (typeof item === 'string') {
+          return { name: item, icon: '' };
+        }
+        return item;
+      });
+      this.setDataValue('amenities', normalized);
+    } else {
+      this.setDataValue('amenities', value);
+    }
+  }
+},
+
+  
     location: {
       type: DataTypes.JSON,
       defaultValue: {
