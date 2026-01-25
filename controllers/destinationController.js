@@ -87,6 +87,8 @@ exports.getDestinations = async (req, res) => {
 // @route   GET /api/destinations/:id
 // @access  Public
 exports.getDestination = async (req, res) => {
+  console.log('🚨 getDestination called! ID:', req.params.id); // ADD THIS LINE
+  
   try {
     const destination = await Destination.findByPk(req.params.id);
 
@@ -107,6 +109,7 @@ exports.getDestination = async (req, res) => {
 
     // Parse JSON fields
     const parsedDestination = parseDestinationJSON(destination);
+    console.log('🔍 Looking for places near destination:', parsedDestination.id, parsedDestination.name);
 
     // Find hotels that have this destination in their nearbyDestinations
     const allHotels = await Hotel.findAll({
@@ -115,24 +118,39 @@ exports.getDestination = async (req, res) => {
       }
     });
 
+    console.log('🏨 Total active hotels:', allHotels.length);
+
     const nearbyHotels = allHotels
       .map(hotel => {
         const hotelJSON = hotel.toJSON();
+        
+        console.log('🔍 Checking hotel:', hotelJSON.name);
+        console.log('  nearbyDestinations raw:', hotelJSON.nearbyDestinations);
+        console.log('  nearbyDestinations type:', typeof hotelJSON.nearbyDestinations);
         
         // Parse nearbyDestinations if it's a string
         let nearbyDests = hotelJSON.nearbyDestinations;
         if (typeof nearbyDests === 'string') {
           try {
             nearbyDests = JSON.parse(nearbyDests);
+            console.log('  Parsed nearbyDestinations:', nearbyDests);
           } catch (e) {
+            console.log('  ❌ Failed to parse nearbyDestinations:', e.message);
             nearbyDests = [];
           }
         }
 
         // Check if this destination is in the hotel's nearbyDestinations
         if (Array.isArray(nearbyDests)) {
-          const destInfo = nearbyDests.find(nd => nd.destinationId === parsedDestination.id);
+          console.log('  Searching for destinationId:', parsedDestination.id);
+          const destInfo = nearbyDests.find(nd => {
+            console.log('    Comparing:', nd.destinationId, 'with', parsedDestination.id);
+            return nd.destinationId === parsedDestination.id;
+          });
+          
           if (destInfo) {
+            console.log('  ✅ MATCH FOUND! Distance:', destInfo.distance, destInfo.unit);
+            
             // Parse other JSON fields
             if (hotelJSON.photoGallery && typeof hotelJSON.photoGallery === 'string') {
               try { hotelJSON.photoGallery = JSON.parse(hotelJSON.photoGallery); } catch (e) { hotelJSON.photoGallery = []; }
@@ -152,12 +170,19 @@ exports.getDestination = async (req, res) => {
               distanceToDestination: destInfo.distance,
               distanceUnit: destInfo.unit
             };
+          } else {
+            console.log('  ❌ No match for this destination');
           }
+        } else {
+          console.log('  ❌ nearbyDestinations is not an array:', nearbyDests);
         }
         return null;
       })
       .filter(Boolean)
       .sort((a, b) => (a.distanceToDestination || 999) - (b.distanceToDestination || 999));
+
+    console.log('✅ Found nearby hotels:', nearbyHotels.length);
+    nearbyHotels.forEach(h => console.log('  -', h.name, '(', h.distanceToDestination, h.distanceUnit, ')'));
 
     // Find restaurants that have this destination in their nearbyDestinations
     const allRestaurants = await Restaurant.findAll({
@@ -166,24 +191,39 @@ exports.getDestination = async (req, res) => {
       }
     });
 
+    console.log('🍽️ Total active restaurants:', allRestaurants.length);
+
     const nearbyRestaurants = allRestaurants
       .map(restaurant => {
         const restaurantJSON = restaurant.toJSON();
+        
+        console.log('🔍 Checking restaurant:', restaurantJSON.name);
+        console.log('  nearbyDestinations raw:', restaurantJSON.nearbyDestinations);
+        console.log('  nearbyDestinations type:', typeof restaurantJSON.nearbyDestinations);
         
         // Parse nearbyDestinations if it's a string
         let nearbyDests = restaurantJSON.nearbyDestinations;
         if (typeof nearbyDests === 'string') {
           try {
             nearbyDests = JSON.parse(nearbyDests);
+            console.log('  Parsed nearbyDestinations:', nearbyDests);
           } catch (e) {
+            console.log('  ❌ Failed to parse nearbyDestinations:', e.message);
             nearbyDests = [];
           }
         }
 
         // Check if this destination is in the restaurant's nearbyDestinations
         if (Array.isArray(nearbyDests)) {
-          const destInfo = nearbyDests.find(nd => nd.destinationId === parsedDestination.id);
+          console.log('  Searching for destinationId:', parsedDestination.id);
+          const destInfo = nearbyDests.find(nd => {
+            console.log('    Comparing:', nd.destinationId, 'with', parsedDestination.id);
+            return nd.destinationId === parsedDestination.id;
+          });
+          
           if (destInfo) {
+            console.log('  ✅ MATCH FOUND! Distance:', destInfo.distance, destInfo.unit);
+            
             // Parse other JSON fields
             if (restaurantJSON.photoGallery && typeof restaurantJSON.photoGallery === 'string') {
               try { restaurantJSON.photoGallery = JSON.parse(restaurantJSON.photoGallery); } catch (e) { restaurantJSON.photoGallery = []; }
@@ -206,12 +246,19 @@ exports.getDestination = async (req, res) => {
               distanceToDestination: destInfo.distance,
               distanceUnit: destInfo.unit
             };
+          } else {
+            console.log('  ❌ No match for this destination');
           }
+        } else {
+          console.log('  ❌ nearbyDestinations is not an array:', nearbyDests);
         }
         return null;
       })
       .filter(Boolean)
       .sort((a, b) => (a.distanceToDestination || 999) - (b.distanceToDestination || 999));
+
+    console.log('✅ Found nearby restaurants:', nearbyRestaurants.length);
+    nearbyRestaurants.forEach(r => console.log('  -', r.name, '(', r.distanceToDestination, r.distanceUnit, ')'));
 
     res.status(200).json({
       success: true,
@@ -222,7 +269,7 @@ exports.getDestination = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Get destination error:', error);
+    console.error('❌ Get destination error:', error);
     res.status(400).json({
       success: false,
       message: error.message,
