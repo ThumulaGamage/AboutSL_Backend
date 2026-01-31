@@ -1,5 +1,4 @@
 const Hotel = require('../models/Hotel');
-const Destination = require('../models/Destination');
 const { Op } = require('sequelize');
 
 // Helper to parse JSON fields
@@ -8,7 +7,7 @@ const parseHotelJSON = (hotel) => {
   return hotel.toJSON(); // Model getters will handle parsing
 };
 
-// @desc    Get all hotels with nearby destinations populated
+// @desc    Get all hotels
 // @route   GET /api/hotels
 // @access  Public
 exports.getHotels = async (req, res) => {
@@ -34,31 +33,7 @@ exports.getHotels = async (req, res) => {
       order: [['createdAt', 'DESC']]
     });
 
-    // Parse and populate nearby destinations
-    const parsedHotels = await Promise.all(
-      hotels.map(async (hotel) => {
-        const parsed = parseHotelJSON(hotel);
-        
-        // Populate nearby destinations with full details
-        if (parsed.nearbyDestinations && parsed.nearbyDestinations.length > 0) {
-          const destinationIds = parsed.nearbyDestinations.map(nd => nd.destinationId);
-          const destinations = await Destination.findAll({
-            where: { id: { [Op.in]: destinationIds } },
-            attributes: ['id', 'name', 'heroImage', 'category', 'region']
-          });
-
-          parsed.nearbyDestinationsDetails = parsed.nearbyDestinations.map(nd => {
-            const destination = destinations.find(d => d.id === nd.destinationId);
-            return {
-              ...nd,
-              destination: destination ? destination.toJSON() : null
-            };
-          });
-        }
-
-        return parsed;
-      })
-    );
+    const parsedHotels = hotels.map(hotel => parseHotelJSON(hotel));
 
     res.status(200).json({
       success: true,
@@ -73,7 +48,7 @@ exports.getHotels = async (req, res) => {
   }
 };
 
-// @desc    Get single hotel with nearby destinations
+// @desc    Get single hotel
 // @route   GET /api/hotels/:id
 // @access  Public
 exports.getHotel = async (req, res) => {
@@ -96,22 +71,6 @@ exports.getHotel = async (req, res) => {
 
     const parsed = parseHotelJSON(hotel);
 
-    // Populate nearby destinations with full details
-    if (parsed.nearbyDestinations && parsed.nearbyDestinations.length > 0) {
-      const destinationIds = parsed.nearbyDestinations.map(nd => nd.destinationId);
-      const destinations = await Destination.findAll({
-        where: { id: { [Op.in]: destinationIds } }
-      });
-
-      parsed.nearbyDestinationsDetails = parsed.nearbyDestinations.map(nd => {
-        const destination = destinations.find(d => d.id === nd.destinationId);
-        return {
-          ...nd,
-          destination: destination ? destination.toJSON() : null
-        };
-      }).sort((a, b) => a.distance - b.distance); // Sort by distance
-    }
-
     res.status(200).json({
       success: true,
       data: parsed
@@ -129,14 +88,8 @@ exports.getHotel = async (req, res) => {
 // @access  Private (Admin)
 exports.createHotel = async (req, res) => {
   try {
-    console.log('📥 Received hotel data:', JSON.stringify(req.body, null, 2));
-    console.log('📸 Photo Gallery received:', req.body.photoGallery);
-    
     const hotel = await Hotel.create(req.body);
     const parsed = parseHotelJSON(hotel);
-
-    console.log('💾 Saved hotel:', JSON.stringify(parsed, null, 2));
-    console.log('📸 Photo Gallery saved:', parsed.photoGallery);
 
     res.status(201).json({
       success: true,
@@ -147,7 +100,8 @@ exports.createHotel = async (req, res) => {
     console.error('Create hotel error:', error);
     res.status(400).json({
       success: false,
-      message: error.message
+      message: error.message,
+      errors: error.errors?.map(e => ({ field: e.path, message: e.message }))
     });
   }
 };
@@ -178,7 +132,8 @@ exports.updateHotel = async (req, res) => {
     console.error('Update hotel error:', error);
     res.status(400).json({
       success: false,
-      message: error.message
+      message: error.message,
+      errors: error.errors?.map(e => ({ field: e.path, message: e.message }))
     });
   }
 };
