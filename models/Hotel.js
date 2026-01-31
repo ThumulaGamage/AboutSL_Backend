@@ -36,36 +36,36 @@ const Hotel = sequelize.define(
     heroImagePublicId: {
       type: DataTypes.STRING,
     },
-   photoGallery: {
-  type: DataTypes.JSON,
-  defaultValue: [],
-  get() {
-    const rawValue = this.getDataValue('photoGallery');
-    if (typeof rawValue === 'string') {
-      try {
-        return JSON.parse(rawValue);
-      } catch (e) {
-        return [];
-      }
-    }
-    return rawValue || [];
-  },
-  set(value) {
-    // Accept both string arrays and object arrays
-    if (Array.isArray(value)) {
-      // If it's an array of strings, convert to objects
-      const normalized = value.map((item, index) => {
-        if (typeof item === 'string') {
-          return { url: item, caption: '', order: index, publicId: '' };
+    photoGallery: {
+      type: DataTypes.JSON,
+      defaultValue: [],
+      get() {
+        const rawValue = this.getDataValue('photoGallery');
+        if (typeof rawValue === 'string') {
+          try {
+            return JSON.parse(rawValue);
+          } catch (e) {
+            return [];
+          }
         }
-        return item;
-      });
-      this.setDataValue('photoGallery', normalized);
-    } else {
-      this.setDataValue('photoGallery', value);
-    }
-  }
-},
+        return rawValue || [];
+      },
+      set(value) {
+        // Accept both string arrays and object arrays
+        if (Array.isArray(value)) {
+          // If it's an array of strings, convert to objects
+          const normalized = value.map((item, index) => {
+            if (typeof item === 'string') {
+              return { url: item, caption: '', order: index, publicId: '' };
+            }
+            return item;
+          });
+          this.setDataValue('photoGallery', normalized);
+        } else {
+          this.setDataValue('photoGallery', value);
+        }
+      }
+    },
     quickSummary: {
       type: DataTypes.TEXT,
     },
@@ -73,38 +73,37 @@ const Hotel = sequelize.define(
       type: DataTypes.TEXT,
       allowNull: false,
     },
-amenities: {
-  type: DataTypes.JSON,
-  defaultValue: [],
-  get() {
-    const rawValue = this.getDataValue('amenities');
-    if (typeof rawValue === 'string') {
-      try {
-        return JSON.parse(rawValue);
-      } catch (e) {
-        return [];
-      }
-    }
-    return rawValue || [];
-  },
-  set(value) {
-    // Accept both string arrays and object arrays
-    if (Array.isArray(value)) {
-      // If it's an array of strings, convert to objects
-      const normalized = value.map(item => {
-        if (typeof item === 'string') {
-          return { name: item, icon: '' };
+    amenities: {
+      type: DataTypes.JSON,
+      defaultValue: [],
+      get() {
+        const rawValue = this.getDataValue('amenities');
+        if (typeof rawValue === 'string') {
+          try {
+            return JSON.parse(rawValue);
+          } catch (e) {
+            return [];
+          }
         }
-        return item;
-      });
-      this.setDataValue('amenities', normalized);
-    } else {
-      this.setDataValue('amenities', value);
-    }
-  }
-},
-
-  
+        return rawValue || [];
+      },
+      set(value) {
+        // Accept both string arrays and object arrays
+        if (Array.isArray(value)) {
+          // If it's an array of strings, convert to objects
+          const normalized = value.map(item => {
+            if (typeof item === 'string') {
+              return { name: item, icon: '' };
+            }
+            return item;
+          });
+          this.setDataValue('amenities', normalized);
+        } else {
+          this.setDataValue('amenities', value);
+        }
+      }
+    },
+    
     location: {
       type: DataTypes.JSON,
       defaultValue: {
@@ -142,21 +141,21 @@ amenities: {
         return rawValue || {};
       }
     },
-    nearbyDestinations: {
-      type: DataTypes.JSON,
-      defaultValue: [],
-      get() {
-        const rawValue = this.getDataValue('nearbyDestinations');
-        if (typeof rawValue === 'string') {
-          try {
-            return JSON.parse(rawValue);
-          } catch (e) {
-            return [];
-          }
+    
+    // ✅ NEW: Official Website URL
+    websiteUrl: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      validate: {
+        isUrl: {
+          msg: 'Please provide a valid URL'
         }
-        return rawValue || [];
       }
     },
+    
+    // ❌ REMOVED: nearbyDestinations (now managed by Destination model)
+    // Destinations will link to hotels, not the other way around
+    
     rating: {
       type: DataTypes.DECIMAL(2, 1),
       defaultValue: 0,

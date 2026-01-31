@@ -128,21 +128,21 @@ const Restaurant = sequelize.define(
         return rawValue || {};
       }
     },
-    nearbyDestinations: {
-      type: DataTypes.JSON,
-      defaultValue: [],
-      get() {
-        const rawValue = this.getDataValue('nearbyDestinations');
-        if (typeof rawValue === 'string') {
-          try {
-            return JSON.parse(rawValue);
-          } catch (e) {
-            return [];
-          }
+    
+    // ✅ NEW: Official Website URL
+    websiteUrl: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      validate: {
+        isUrl: {
+          msg: 'Please provide a valid URL'
         }
-        return rawValue || [];
       }
     },
+    
+    // ❌ REMOVED: nearbyDestinations (now managed by Destination model)
+    // Destinations will link to restaurants, not the other way around
+    
     rating: {
       type: DataTypes.DECIMAL(2, 1),
       defaultValue: 0,

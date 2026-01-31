@@ -12,12 +12,16 @@ const parseDestinationJSON = (destination) => {
   // Parse all JSON fields if they're strings
   const jsonFields = [
     'overview',
+    'historyAndLegend',
+    'whereIsLocated',
+    'howToGo',
     'whatToSee', 
     'bestTimeToVisit',
     'thingsToDo',
+    'whereToStay',
+    'whereToEat',
     'travelTips',
-    'historyAndLegend',
-    'location',
+    'nearbyDestinations',
     'keywords'
   ];
   
@@ -33,6 +37,42 @@ const parseDestinationJSON = (destination) => {
   });
   
   return parsed;
+};
+
+// Helper to format destination data before saving
+const formatDestinationData = (data) => {
+  const formatted = { ...data };
+  
+  // Ensure JSON fields are objects (Sequelize will stringify them)
+  const jsonFields = [
+    'overview',
+    'historyAndLegend',
+    'whereIsLocated',
+    'howToGo',
+    'whatToSee', 
+    'bestTimeToVisit',
+    'thingsToDo',
+    'whereToStay',
+    'whereToEat',
+    'travelTips',
+    'nearbyDestinations',
+    'keywords'
+  ];
+  
+  jsonFields.forEach(field => {
+    if (formatted[field]) {
+      // If it's a string, try to parse it
+      if (typeof formatted[field] === 'string') {
+        try {
+          formatted[field] = JSON.parse(formatted[field]);
+        } catch (e) {
+          console.error(`Error parsing ${field}:`, e);
+        }
+      }
+    }
+  });
+  
+  return formatted;
 };
 
 // @desc    Get all destinations
@@ -83,12 +123,10 @@ exports.getDestinations = async (req, res) => {
   }
 };
 
-// @desc    Get single destination with nearby hotels/restaurants
+// @desc    Get single destination with populated relations
 // @route   GET /api/destinations/:id
 // @access  Public
 exports.getDestination = async (req, res) => {
-  console.log('🚨 getDestination called! ID:', req.params.id); // ADD THIS LINE
-  
   try {
     const destination = await Destination.findByPk(req.params.id);
 
@@ -109,167 +147,88 @@ exports.getDestination = async (req, res) => {
 
     // Parse JSON fields
     const parsedDestination = parseDestinationJSON(destination);
-    console.log('🔍 Looking for places near destination:', parsedDestination.id, parsedDestination.name);
 
-    // Find hotels that have this destination in their nearbyDestinations
-    const allHotels = await Hotel.findAll({
-      where: {
-        status: 'active'
-      }
-    });
+    // Populate whereToStay with hotel details
+    if (parsedDestination.whereToStay && parsedDestination.whereToStay.hotels && parsedDestination.whereToStay.hotels.length > 0) {
+      const hotelIds = parsedDestination.whereToStay.hotels.map(h => h.hotelId);
+      const hotels = await Hotel.findAll({
+        where: { 
+          id: { [Op.in]: hotelIds },
+          status: 'active'
+        },
+        attributes: ['id', 'name', 'slug', 'heroImage', 'category', 'price', 'currency', 'rating', 'reviewCount']
+      });
 
-    console.log('🏨 Total active hotels:', allHotels.length);
+      parsedDestination.whereToStay.hotelsDetails = parsedDestination.whereToStay.hotels
+        .map(h => {
+          const hotel = hotels.find(hotel => hotel.id === h.hotelId);
+          if (!hotel) return null;
+          return {
+            ...hotel.toJSON(),
+            distance: h.distance,
+            unit: h.unit
+          };
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.distance - b.distance);
+    }
 
-    const nearbyHotels = allHotels
-      .map(hotel => {
-        const hotelJSON = hotel.toJSON();
-        
-        console.log('🔍 Checking hotel:', hotelJSON.name);
-        console.log('  nearbyDestinations raw:', hotelJSON.nearbyDestinations);
-        console.log('  nearbyDestinations type:', typeof hotelJSON.nearbyDestinations);
-        
-        // Parse nearbyDestinations if it's a string
-        let nearbyDests = hotelJSON.nearbyDestinations;
-        if (typeof nearbyDests === 'string') {
-          try {
-            nearbyDests = JSON.parse(nearbyDests);
-            console.log('  Parsed nearbyDestinations:', nearbyDests);
-          } catch (e) {
-            console.log('  ❌ Failed to parse nearbyDestinations:', e.message);
-            nearbyDests = [];
-          }
-        }
+    // Populate whereToEat with restaurant details
+    if (parsedDestination.whereToEat && parsedDestination.whereToEat.restaurants && parsedDestination.whereToEat.restaurants.length > 0) {
+      const restaurantIds = parsedDestination.whereToEat.restaurants.map(r => r.restaurantId);
+      const restaurants = await Restaurant.findAll({
+        where: { 
+          id: { [Op.in]: restaurantIds },
+          status: 'active'
+        },
+        attributes: ['id', 'name', 'slug', 'heroImage', 'cuisine', 'priceRange', 'rating', 'reviewCount']
+      });
 
-        // Check if this destination is in the hotel's nearbyDestinations
-        if (Array.isArray(nearbyDests)) {
-          console.log('  Searching for destinationId:', parsedDestination.id);
-          const destInfo = nearbyDests.find(nd => {
-            console.log('    Comparing:', nd.destinationId, 'with', parsedDestination.id);
-            return nd.destinationId === parsedDestination.id;
-          });
-          
-          if (destInfo) {
-            console.log('  ✅ MATCH FOUND! Distance:', destInfo.distance, destInfo.unit);
-            
-            // Parse other JSON fields
-            if (hotelJSON.photoGallery && typeof hotelJSON.photoGallery === 'string') {
-              try { hotelJSON.photoGallery = JSON.parse(hotelJSON.photoGallery); } catch (e) { hotelJSON.photoGallery = []; }
-            }
-            if (hotelJSON.amenities && typeof hotelJSON.amenities === 'string') {
-              try { hotelJSON.amenities = JSON.parse(hotelJSON.amenities); } catch (e) { hotelJSON.amenities = []; }
-            }
-            if (hotelJSON.location && typeof hotelJSON.location === 'string') {
-              try { hotelJSON.location = JSON.parse(hotelJSON.location); } catch (e) { hotelJSON.location = {}; }
-            }
-            if (hotelJSON.contact && typeof hotelJSON.contact === 'string') {
-              try { hotelJSON.contact = JSON.parse(hotelJSON.contact); } catch (e) { hotelJSON.contact = {}; }
-            }
+      parsedDestination.whereToEat.restaurantsDetails = parsedDestination.whereToEat.restaurants
+        .map(r => {
+          const restaurant = restaurants.find(rest => rest.id === r.restaurantId);
+          if (!restaurant) return null;
+          return {
+            ...restaurant.toJSON(),
+            distance: r.distance,
+            unit: r.unit
+          };
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.distance - b.distance);
+    }
 
-            return {
-              ...hotelJSON,
-              distanceToDestination: destInfo.distance,
-              distanceUnit: destInfo.unit
-            };
-          } else {
-            console.log('  ❌ No match for this destination');
-          }
-        } else {
-          console.log('  ❌ nearbyDestinations is not an array:', nearbyDests);
-        }
-        return null;
-      })
-      .filter(Boolean)
-      .sort((a, b) => (a.distanceToDestination || 999) - (b.distanceToDestination || 999));
+    // Populate nearbyDestinations with destination details
+    if (parsedDestination.nearbyDestinations && parsedDestination.nearbyDestinations.destinations && parsedDestination.nearbyDestinations.destinations.length > 0) {
+      const destinationIds = parsedDestination.nearbyDestinations.destinations.map(d => d.destinationId);
+      const nearbyDests = await Destination.findAll({
+        where: { 
+          id: { [Op.in]: destinationIds },
+          status: 'active'
+        },
+        attributes: ['id', 'name', 'slug', 'heroImage', 'category', 'region']
+      });
 
-    console.log('✅ Found nearby hotels:', nearbyHotels.length);
-    nearbyHotels.forEach(h => console.log('  -', h.name, '(', h.distanceToDestination, h.distanceUnit, ')'));
-
-    // Find restaurants that have this destination in their nearbyDestinations
-    const allRestaurants = await Restaurant.findAll({
-      where: {
-        status: 'active'
-      }
-    });
-
-    console.log('🍽️ Total active restaurants:', allRestaurants.length);
-
-    const nearbyRestaurants = allRestaurants
-      .map(restaurant => {
-        const restaurantJSON = restaurant.toJSON();
-        
-        console.log('🔍 Checking restaurant:', restaurantJSON.name);
-        console.log('  nearbyDestinations raw:', restaurantJSON.nearbyDestinations);
-        console.log('  nearbyDestinations type:', typeof restaurantJSON.nearbyDestinations);
-        
-        // Parse nearbyDestinations if it's a string
-        let nearbyDests = restaurantJSON.nearbyDestinations;
-        if (typeof nearbyDests === 'string') {
-          try {
-            nearbyDests = JSON.parse(nearbyDests);
-            console.log('  Parsed nearbyDestinations:', nearbyDests);
-          } catch (e) {
-            console.log('  ❌ Failed to parse nearbyDestinations:', e.message);
-            nearbyDests = [];
-          }
-        }
-
-        // Check if this destination is in the restaurant's nearbyDestinations
-        if (Array.isArray(nearbyDests)) {
-          console.log('  Searching for destinationId:', parsedDestination.id);
-          const destInfo = nearbyDests.find(nd => {
-            console.log('    Comparing:', nd.destinationId, 'with', parsedDestination.id);
-            return nd.destinationId === parsedDestination.id;
-          });
-          
-          if (destInfo) {
-            console.log('  ✅ MATCH FOUND! Distance:', destInfo.distance, destInfo.unit);
-            
-            // Parse other JSON fields
-            if (restaurantJSON.photoGallery && typeof restaurantJSON.photoGallery === 'string') {
-              try { restaurantJSON.photoGallery = JSON.parse(restaurantJSON.photoGallery); } catch (e) { restaurantJSON.photoGallery = []; }
-            }
-            if (restaurantJSON.menuHighlights && typeof restaurantJSON.menuHighlights === 'string') {
-              try { restaurantJSON.menuHighlights = JSON.parse(restaurantJSON.menuHighlights); } catch (e) { restaurantJSON.menuHighlights = []; }
-            }
-            if (restaurantJSON.hours && typeof restaurantJSON.hours === 'string') {
-              try { restaurantJSON.hours = JSON.parse(restaurantJSON.hours); } catch (e) { restaurantJSON.hours = {}; }
-            }
-            if (restaurantJSON.location && typeof restaurantJSON.location === 'string') {
-              try { restaurantJSON.location = JSON.parse(restaurantJSON.location); } catch (e) { restaurantJSON.location = {}; }
-            }
-            if (restaurantJSON.contact && typeof restaurantJSON.contact === 'string') {
-              try { restaurantJSON.contact = JSON.parse(restaurantJSON.contact); } catch (e) { restaurantJSON.contact = {}; }
-            }
-
-            return {
-              ...restaurantJSON,
-              distanceToDestination: destInfo.distance,
-              distanceUnit: destInfo.unit
-            };
-          } else {
-            console.log('  ❌ No match for this destination');
-          }
-        } else {
-          console.log('  ❌ nearbyDestinations is not an array:', nearbyDests);
-        }
-        return null;
-      })
-      .filter(Boolean)
-      .sort((a, b) => (a.distanceToDestination || 999) - (b.distanceToDestination || 999));
-
-    console.log('✅ Found nearby restaurants:', nearbyRestaurants.length);
-    nearbyRestaurants.forEach(r => console.log('  -', r.name, '(', r.distanceToDestination, r.distanceUnit, ')'));
+      parsedDestination.nearbyDestinations.destinationsDetails = parsedDestination.nearbyDestinations.destinations
+        .map(d => {
+          const dest = nearbyDests.find(destination => destination.id === d.destinationId);
+          if (!dest) return null;
+          return {
+            ...dest.toJSON(),
+            distance: d.distance,
+            unit: d.unit
+          };
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.distance - b.distance);
+    }
 
     res.status(200).json({
       success: true,
-      data: {
-        ...parsedDestination,
-        nearbyHotels,
-        nearbyRestaurants,
-      },
+      data: parsedDestination,
     });
   } catch (error) {
-    console.error('❌ Get destination error:', error);
+    console.error('Get destination error:', error);
     res.status(400).json({
       success: false,
       message: error.message,
@@ -280,42 +239,6 @@ exports.getDestination = async (req, res) => {
 // @desc    Create new destination
 // @route   POST /api/destinations
 // @access  Private (Admin)
-const formatDestinationData = (data) => {
-  const formatted = { ...data };
-  
-  // Ensure JSON fields are objects (Sequelize will stringify them)
-  const jsonFields = [
-    'overview',
-    'whatToSee', 
-    'bestTimeToVisit',
-    'thingsToDo',
-    'travelTips',
-    'historyAndLegend',
-    'location',
-    'keywords'
-  ];
-  
-  jsonFields.forEach(field => {
-    if (formatted[field]) {
-      // If it's a string, try to parse it
-      if (typeof formatted[field] === 'string') {
-        try {
-          formatted[field] = JSON.parse(formatted[field]);
-        } catch (e) {
-          console.error(`Error parsing ${field}:`, e);
-        }
-      }
-      // If it's an object, ensure it's properly structured
-      if (typeof formatted[field] === 'object') {
-        // Sequelize will handle the stringification
-      }
-    }
-  });
-  
-  return formatted;
-};
-
-// Update the createDestination function
 exports.createDestination = async (req, res) => {
   try {
     const formattedData = formatDestinationData(req.body);
@@ -338,7 +261,9 @@ exports.createDestination = async (req, res) => {
   }
 };
 
-// Update the updateDestination function
+// @desc    Update destination
+// @route   PUT /api/destinations/:id
+// @access  Private (Admin)
 exports.updateDestination = async (req, res) => {
   try {
     let destination = await Destination.findByPk(req.params.id);

@@ -14,6 +14,9 @@ const hotelRoutes = require('./routes/hotels');
 const restaurantRoutes = require('./routes/restaurants');
 
 const uploadRoutes = require('./routes/upload');
+const heroSlidesRoutes = require('./routes/heroSlides');
+const aboutPageRoutes = require('./routes/aboutPage');
+const contactPageRoutes = require('./routes/contactPage');
 
 // Initialize Express app
 const app = express();
@@ -37,6 +40,10 @@ app.use('/api/hotels', hotelRoutes);
 app.use('/api/restaurants', restaurantRoutes);
 
 app.use('/api/upload', uploadRoutes);
+
+app.use('/api/hero-slides', heroSlidesRoutes);
+app.use('/api/about-page', aboutPageRoutes);
+app.use('/api/contact-page', contactPageRoutes);
 
 // Health Check Route
 app.get('/api/health', (req, res) => {

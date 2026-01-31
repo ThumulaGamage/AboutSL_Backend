@@ -1,5 +1,4 @@
 const Restaurant = require('../models/Restaurant');
-const Destination = require('../models/Destination');
 const { Op } = require('sequelize');
 
 // Helper to parse JSON fields
@@ -8,7 +7,7 @@ const parseRestaurantJSON = (restaurant) => {
   return restaurant.toJSON(); // Model getters will handle parsing
 };
 
-// @desc    Get all restaurants with nearby destinations
+// @desc    Get all restaurants
 // @route   GET /api/restaurants
 // @access  Public
 exports.getRestaurants = async (req, res) => {
@@ -34,31 +33,7 @@ exports.getRestaurants = async (req, res) => {
       order: [['createdAt', 'DESC']]
     });
 
-    // Parse and populate nearby destinations
-    const parsedRestaurants = await Promise.all(
-      restaurants.map(async (restaurant) => {
-        const parsed = parseRestaurantJSON(restaurant);
-        
-        // Populate nearby destinations with full details
-        if (parsed.nearbyDestinations && parsed.nearbyDestinations.length > 0) {
-          const destinationIds = parsed.nearbyDestinations.map(nd => nd.destinationId);
-          const destinations = await Destination.findAll({
-            where: { id: { [Op.in]: destinationIds } },
-            attributes: ['id', 'name', 'heroImage', 'category', 'region']
-          });
-
-          parsed.nearbyDestinationsDetails = parsed.nearbyDestinations.map(nd => {
-            const destination = destinations.find(d => d.id === nd.destinationId);
-            return {
-              ...nd,
-              destination: destination ? destination.toJSON() : null
-            };
-          });
-        }
-
-        return parsed;
-      })
-    );
+    const parsedRestaurants = restaurants.map(restaurant => parseRestaurantJSON(restaurant));
 
     res.status(200).json({
       success: true,
@@ -73,7 +48,7 @@ exports.getRestaurants = async (req, res) => {
   }
 };
 
-// @desc    Get single restaurant with nearby destinations
+// @desc    Get single restaurant
 // @route   GET /api/restaurants/:id
 // @access  Public
 exports.getRestaurant = async (req, res) => {
@@ -95,22 +70,6 @@ exports.getRestaurant = async (req, res) => {
     }
 
     const parsed = parseRestaurantJSON(restaurant);
-
-    // Populate nearby destinations with full details
-    if (parsed.nearbyDestinations && parsed.nearbyDestinations.length > 0) {
-      const destinationIds = parsed.nearbyDestinations.map(nd => nd.destinationId);
-      const destinations = await Destination.findAll({
-        where: { id: { [Op.in]: destinationIds } }
-      });
-
-      parsed.nearbyDestinationsDetails = parsed.nearbyDestinations.map(nd => {
-        const destination = destinations.find(d => d.id === nd.destinationId);
-        return {
-          ...nd,
-          destination: destination ? destination.toJSON() : null
-        };
-      }).sort((a, b) => a.distance - b.distance); // Sort by distance
-    }
 
     res.status(200).json({
       success: true,
@@ -141,7 +100,8 @@ exports.createRestaurant = async (req, res) => {
     console.error('Create restaurant error:', error);
     res.status(400).json({
       success: false,
-      message: error.message
+      message: error.message,
+      errors: error.errors?.map(e => ({ field: e.path, message: e.message }))
     });
   }
 };
@@ -172,7 +132,8 @@ exports.updateRestaurant = async (req, res) => {
     console.error('Update restaurant error:', error);
     res.status(400).json({
       success: false,
-      message: error.message
+      message: error.message,
+      errors: error.errors?.map(e => ({ field: e.path, message: e.message }))
     });
   }
 };
